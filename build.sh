@@ -25,4 +25,10 @@ python manage.py collectstatic --noinput
 echo "Seeding sample data..."
 python manage.py seed_data || echo "Seed data skipped or already exists."
 
+# Create superuser from env vars (if set)
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
+    echo "Creating superuser..."
+    python manage.py createsuperuser --noinput || echo "Superuser already exists."
+fi
+
 echo "=== Build Complete ==="
