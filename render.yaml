@@ -1,0 +1,29 @@
+# ---- Render Blueprint (Infrastructure as Code) ----
+# This file tells Render what to deploy when you connect your GitHub repo.
+
+databases:
+  - name: voicehr-db
+    plan: free
+    databaseName: voicehr_db
+    user: voicehr_user
+
+services:
+  - type: web
+    name: voicehr
+    plan: free
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "cd backend && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: voicehr-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: OPENAI_API_KEY
+        value: ""
