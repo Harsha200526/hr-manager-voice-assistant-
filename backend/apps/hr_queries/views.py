@@ -22,9 +22,7 @@ from apps.hr_queries.serializers import (
 )
 
 
-# ──────────────────────────────────────────────
-# Permissions
-# ──────────────────────────────────────────────
+
 class IsHRUser(IsAuthenticated):
     """Custom permission to only allow HR users."""
 
@@ -33,9 +31,6 @@ class IsHRUser(IsAuthenticated):
         return is_authenticated and getattr(request.user, "is_hr", False)
 
 
-# ──────────────────────────────────────────────
-# HR Employee Management
-# ──────────────────────────────────────────────
 class HREmployeeListView(generics.ListAPIView):
     """
     GET /api/hr/employees/
@@ -103,7 +98,7 @@ class HREmployeeCreateView(APIView):
             department=data.get("department", "General"),
         )
 
-        # Create payroll
+        
         Payroll.objects.create(
             employee=emp,
             salary=data.get("salary", 0),
@@ -111,11 +106,11 @@ class HREmployeeCreateView(APIView):
             last_paid_date=date.today(),
         )
 
-        # Create default leave balances
+        
         for lt, total in [("casual", 12), ("medical", 10), ("earned", 15)]:
             LeaveBalance.objects.create(employee=emp, leave_type=lt, total=total, used=0)
 
-        # Notify the new employee
+        
         Notification.objects.create(
             recipient=emp,
             message=f"Welcome to the company, {emp.name}! Your account has been created by HR.",
@@ -128,9 +123,7 @@ class HREmployeeCreateView(APIView):
         )
 
 
-# ──────────────────────────────────────────────
-# HR Leave Management
-# ──────────────────────────────────────────────
+
 class HRLeaveListView(generics.ListAPIView):
     """
     GET /api/hr/leaves/
@@ -183,7 +176,7 @@ class HRLeaveStatusUpdateView(generics.UpdateAPIView):
             )
 
         if new_status == "approved":
-            # Check quota
+            
             balance = LeaveBalance.objects.filter(
                 employee=leave_request.employee,
                 leave_type=leave_request.leave_type,
@@ -192,7 +185,7 @@ class HRLeaveStatusUpdateView(generics.UpdateAPIView):
             if balance:
                 days_requested = leave_request.days
                 if balance.used + days_requested > balance.total:
-                    # Auto-reject due to insufficient balance
+                    
                     leave_request.status = "rejected"
                     leave_request.save()
 
@@ -208,7 +201,7 @@ class HRLeaveStatusUpdateView(generics.UpdateAPIView):
                         "leave": LeaveRequestSerializer(leave_request).data,
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-                # Deduct from balance
+                
                 balance.used += days_requested
                 balance.save()
 
@@ -238,9 +231,7 @@ class HRLeaveStatusUpdateView(generics.UpdateAPIView):
         return Response(LeaveRequestSerializer(leave_request).data)
 
 
-# ──────────────────────────────────────────────
-# Employee Leave Balances
-# ──────────────────────────────────────────────
+
 class EmployeeLeaveBalanceView(generics.ListAPIView):
     """
     GET /api/employee/leave-balances/
@@ -254,9 +245,7 @@ class EmployeeLeaveBalanceView(generics.ListAPIView):
         return LeaveBalance.objects.filter(employee=self.request.user)
 
 
-# ──────────────────────────────────────────────
-# Notifications (shared – both HR and employees)
-# ──────────────────────────────────────────────
+
 class NotificationListView(generics.ListAPIView):
     """
     GET /api/notifications/

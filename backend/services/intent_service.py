@@ -23,9 +23,7 @@ from spacy.matcher import PhraseMatcher, Matcher
 
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------
-# 1. LOAD SPACY MODEL (once at import time)
-# --------------------------------------------------
+
 try:
     nlp = spacy.load("en_core_web_sm")
     logger.info("spaCy model 'en_core_web_sm' loaded successfully.")
@@ -36,10 +34,7 @@ except OSError:
     )
     nlp = None
 
-# --------------------------------------------------
-# 2. PHRASE MATCHER – exact multi-word phrases
-#    (case-insensitive via LOWER attribute)
-# --------------------------------------------------
+
 PHRASE_INTENT_MAP: dict[str, list[str]] = {
     "greeting": [
         "hi", "hello", "hey", "good morning",
@@ -70,13 +65,16 @@ PHRASE_INTENT_MAP: dict[str, list[str]] = {
         "wfh", "remote work", "dress code", "working hours",
         "company policy", "company rules",
     ],
+    "tax_queries": [
+        "tax", "taxes", "form 16", "income tax", "tds", "tax deduction",
+    ],
+    "company_holidays": [
+        "holiday", "holidays", "public holiday", "company holidays", "festival",
+        "days off",
+    ],
 }
 
-# --------------------------------------------------
-# 3. TOKEN MATCHER – lemma / POS patterns
-#    Catches natural variations like:
-#      "I want to apply for a leave" / "check my leaves"
-# --------------------------------------------------
+
 TOKEN_PATTERNS: dict[str, list[list[dict]]] = {
     "leave_balance": [
         # "how many leaves (do I have / left / remaining)"
@@ -167,11 +165,18 @@ TOKEN_PATTERNS: dict[str, list[list[dict]]] = {
             {"LEMMA": {"IN": ["policy", "rule", "guideline"]}},
         ],
     ],
+    "tax_queries": [
+        [{"LEMMA": {"IN": ["tax", "tds"]}}],
+        [{"LOWER": "form"}, {"LOWER": "16"}],
+    ],
+    "company_holidays": [
+        [
+            {"LEMMA": {"IN": ["holiday", "festival"]}},
+        ],
+    ],
 }
 
-# --------------------------------------------------
-# 4. BUILD MATCHERS (only if model loaded)
-# --------------------------------------------------
+
 _phrase_matcher = None
 _token_matcher = None
 _phrase_intent_lookup: dict[str, str] = {}
@@ -180,12 +185,12 @@ if nlp is not None:
     _phrase_matcher = PhraseMatcher(nlp.vocab, attr="LOWER")
     _token_matcher = Matcher(nlp.vocab)
 
-    # Register phrase patterns
+   
     for intent, phrases in PHRASE_INTENT_MAP.items():
         patterns = [nlp.make_doc(phrase) for phrase in phrases]
         _phrase_matcher.add(intent, patterns)
 
-    # Register token patterns
+    
     for intent, patterns in TOKEN_PATTERNS.items():
         _token_matcher.add(intent, patterns)
 
@@ -195,9 +200,6 @@ if nlp is not None:
         f"{sum(len(v) for v in TOKEN_PATTERNS.values())} token patterns."
     )
 
-# --------------------------------------------------
-# 5. REGEX FALLBACK PATTERNS (unchanged from original)
-# --------------------------------------------------
 INTENT_PATTERNS = {
     "greeting": [
         r"\b(hi|hello|hey|good\s*(morning|afternoon|evening))\b",
@@ -240,12 +242,18 @@ INTENT_PATTERNS = {
         r"\bdress\s*code\b",
         r"\bworking\s*hours?\b",
     ],
+    "tax_queries": [
+        r"\btax(es)?\b",
+        r"\bform\s*16\b",
+        r"\btds\b",
+    ],
+    "company_holidays": [
+        r"\bholiday(s)?\b",
+        r"\bfestival(s)?\b",
+    ],
 }
 
 
-# ==================================================
-# PUBLIC API
-# ==================================================
 
 def detect_intent(text: str) -> str:
     """
@@ -265,14 +273,13 @@ def detect_intent(text: str) -> str:
     """
     text_clean = text.strip()
 
-    # --- Layer 1 & 2: spaCy-based detection ---
     if nlp is not None and _phrase_matcher is not None:
         intent = _spacy_detect(text_clean)
         if intent:
             logger.info(f"Intent detected (spaCy): {intent}")
             return intent
 
-    # --- Layer 3: Regex fallback ---
+
     intent = _regex_detect(text_clean)
     if intent:
         logger.info(f"Intent detected (regex fallback): {intent}")
@@ -282,23 +289,21 @@ def detect_intent(text: str) -> str:
     return "unknown"
 
 
-# --------------------------------------------------
-# PRIVATE HELPERS
-# --------------------------------------------------
+
 
 def _spacy_detect(text: str) -> str | None:
     """Run spaCy PhraseMatcher then token Matcher."""
     doc = nlp(text)
 
-    # --- PhraseMatcher (highest priority) ---
+
     phrase_matches = _phrase_matcher(doc)
     if phrase_matches:
-        # Pick the longest match (most specific)
+
         best = max(phrase_matches, key=lambda m: m[2] - m[1])
         intent = nlp.vocab.strings[best[0]]
         return intent
 
-    # --- Token Matcher ---
+   
     token_matches = _token_matcher(doc)
     if token_matches:
         intent = nlp.vocab.strings[token_matches[0][0]]
@@ -317,11 +322,9 @@ def _regex_detect(text: str) -> str | None:
     return None
 
 
-# ==================================================
-# LEAVE TYPE EXTRACTION
-# ==================================================
 
-# Regex patterns for leave type detection
+
+
 _LEAVE_TYPE_PATTERNS = {
     "medical": [
         r"\bmedical\s*(leave)?\b",
@@ -370,9 +373,7 @@ def extract_leave_type(text: str) -> str | None:
     return None
 
 
-# ==================================================
-# DATE EXTRACTION
-# ==================================================
+
 
 def extract_dates(text: str) -> tuple:
     """
@@ -384,7 +385,6 @@ def extract_dates(text: str) -> tuple:
     import re
     from datetime import date as dt_date
 
-    # Match YYYY-MM-DD patterns
     date_matches = re.findall(r"\b(\d{4}-\d{2}-\d{2})\b", text)
 
     if len(date_matches) >= 2:
@@ -415,9 +415,6 @@ def extract_dates(text: str) -> tuple:
     return (None, None)
 
 
-# ==================================================
-# PAYROLL SUB-INTENT EXTRACTION
-# ==================================================
 
 _PAYROLL_SUBINTENT_PATTERNS = {
     "breakdown": [

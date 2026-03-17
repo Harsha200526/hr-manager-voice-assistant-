@@ -1109,11 +1109,15 @@
             <form id="loginForm">
                 <div class="form-group">
                     <label for="empId">Employee ID or HR ID</label>
-                    <input type="text" id="empId" placeholder="e.g. EMP001" value="EMP001" required>
+                    <input type="text" id="empId" placeholder="e.g. EMP001" required>
+                </div>
+                <div class="form-group">
+                    <label for="empEmail">Email</label>
+                    <input type="email" id="empEmail" placeholder="e.g. name@company.com" required>
                 </div>
                 <div class="form-group">
                     <label for="empPass">Password</label>
-                    <input type="password" id="empPass" placeholder="Enter password" value="password123" required>
+                    <input type="password" id="empPass" placeholder="Enter password" required>
                 </div>
                 <button type="submit" class="btn" id="loginBtn">Sign In</button>
                 <div class="error-msg" id="loginError"></div>
@@ -1473,18 +1477,21 @@
         function setLoginType(type) {
             document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
             const idField = document.getElementById('empId');
+            const emailField = document.getElementById('empEmail');
             const passField = document.getElementById('empPass');
 
             if (type === 'hr') {
                 document.getElementById('tabHrLogin').classList.add('active');
                 idField.placeholder = "e.g. HR001";
-                idField.value = "HR001";
-                passField.value = "password123";
+                idField.value = "";
+                emailField.value = "";
+                passField.value = "";
             } else {
                 document.getElementById('tabEmpLogin').classList.add('active');
                 idField.placeholder = "e.g. EMP001";
-                idField.value = "EMP001";
-                passField.value = "password123";
+                idField.value = "";
+                emailField.value = "";
+                passField.value = "";
             }
         }
 
@@ -1502,6 +1509,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         employee_id: document.getElementById('empId').value,
+                        email: document.getElementById('empEmail').value,
                         password: document.getElementById('empPass').value,
                     }),
                 });

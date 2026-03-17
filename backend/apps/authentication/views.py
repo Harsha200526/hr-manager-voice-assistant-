@@ -28,9 +28,9 @@ def login_view(request):
         password=serializer.validated_data["password"],
     )
 
-    if employee is None:
+    if employee is None or employee.email != serializer.validated_data["email"]:
         return Response(
-            {"error": "Invalid credentials."},
+            {"error": "Invalid email or credentials."},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 

@@ -16,8 +16,6 @@ def history_view(request):
     the authenticated employee.
     """
     logs = ConversationLog.objects.filter(employee=request.user)
-    # Manual pagination (DRF pagination works with generic views;
-    # here we keep it simple for function-based views)
     page_size = 20
     page = int(request.query_params.get("page", 1))
     start = (page - 1) * page_size
