@@ -25,10 +25,13 @@ python manage.py collectstatic --noinput
 echo "Seeding sample data..."
 python manage.py seed_data || echo "Seed data skipped or already exists."
 
-# Create superuser from env vars (if set)
-if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
-    echo "Creating superuser..."
-    python manage.py createsuperuser --noinput || echo "Superuser already exists."
-fi
+# Create superuser automatically (Render Shell requires paid plan)
+export DJANGO_SUPERUSER_EMPLOYEE_ID="${DJANGO_SUPERUSER_EMPLOYEE_ID:-ADMIN}"
+export DJANGO_SUPERUSER_EMAIL="${DJANGO_SUPERUSER_EMAIL:-admin@company.com}"
+export DJANGO_SUPERUSER_PASSWORD="${DJANGO_SUPERUSER_PASSWORD:-admin123}"
+export DJANGO_SUPERUSER_NAME="${DJANGO_SUPERUSER_NAME:-Admin User}"
+
+echo "Creating superuser..."
+python manage.py createsuperuser --noinput || echo "Superuser already exists."
 
 echo "=== Build Complete ==="
