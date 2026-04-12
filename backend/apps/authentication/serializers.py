@@ -7,6 +7,7 @@ from .models import Employee
 class LoginSerializer(serializers.Serializer):
     """Validates login credentials."""
     employee_id = serializers.CharField(max_length=20)
+    email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
 

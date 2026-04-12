@@ -19,9 +19,7 @@ from apps.hr_queries.models import LeaveRequest, LeaveBalance, Payroll, Notifica
 logger = logging.getLogger(__name__)
 
 
-# ==================================================
-# COMPANY POLICIES (static; could move to DB later)
-# ==================================================
+
 COMPANY_POLICIES = {
     "work_from_home": (
         "Our WFH policy allows up to 2 days per week of remote work. "
@@ -41,22 +39,22 @@ COMPANY_POLICIES = {
     ),
 }
 
-# Leave type display labels (no emojis)
+
 LEAVE_TYPE_LABELS = {
     "casual": "Casual Leave",
     "medical": "Medical Leave",
     "earned": "Earned Leave",
 }
 
-# Standard Indian payroll percentages
+
 PAYROLL_PERCENTAGES = {
-    "basic": Decimal("0.50"),        # 50% of gross
-    "hra": Decimal("0.20"),          # 20% of gross
-    "da": Decimal("0.10"),           # 10% of gross (Dearness Allowance)
-    "special": Decimal("0.20"),      # 20% of gross (Special Allowance)
-    "pf_rate": Decimal("0.12"),      # 12% of basic
-    "pt_monthly": Decimal("200"),    # Professional Tax (fixed)
-    "income_tax_rate": Decimal("0.10"),  # ~10% estimated income tax on gross
+    "basic": Decimal("0.50"),        
+    "hra": Decimal("0.20"),          
+    "da": Decimal("0.10"),           
+    "special": Decimal("0.20"),      
+    "pf_rate": Decimal("0.12"),      
+    "pt_monthly": Decimal("200"),   
+    "income_tax_rate": Decimal("0.10"),  
 }
 
 
@@ -79,9 +77,7 @@ def handle_intent(intent: str, employee, query_text: str = "") -> dict:
     return handler(employee)
 
 
-# --------------------------------------------------
-# Individual intent handlers
-# --------------------------------------------------
+
 
 def _handle_greeting(employee):
     current_time = datetime.now()
@@ -93,10 +89,10 @@ def _handle_greeting(employee):
         greeting = "Good evening"
 
     return _response(
-        f"{greeting}, {employee.name}! I am your HR Voice Assistant. "
-        f"You can ask me about your leave balance, attendance, "
-        f"salary details, company policies, or apply for leave. "
-        f"How can I help you today?"
+        f"{greeting}, {employee.name}. I am the VoiceHR Assistant. "
+        f"I can assist you with your leave balance, attendance status, "
+        f"salary details, company policies, tax inquiries, company holidays, "
+        f"and leave applications. How may I assist you today?"
     )
 
 
@@ -136,7 +132,7 @@ def _handle_leave_balance(employee, query_text: str = ""):
             f"balance found. Please contact HR."
         )
 
-    # Show all types
+   
     total_remaining = 0
     lines = [f"Hi {employee.name}, here is your leave balance as of {date.today().strftime('%B %d, %Y')}:\n"]
 
@@ -187,7 +183,7 @@ def _handle_apply_leave(employee, query_text: str = ""):
     has_type = leave_type is not None
     has_dates = start_date is not None and end_date is not None
 
-    # ---- CASE 1: Neither type nor dates provided ----
+  
     if not has_type and not has_dates:
         balances = LeaveBalance.objects.filter(employee=employee)
         bal_list = []
@@ -222,7 +218,6 @@ def _handle_apply_leave(employee, query_text: str = ""):
             data={"balances": bal_list},
         )
 
-    # ---- CASE 2: Dates provided but no type ----
     if has_dates and not has_type:
         balances = LeaveBalance.objects.filter(employee=employee)
         bal_list = []
@@ -263,14 +258,14 @@ def _handle_apply_leave(employee, query_text: str = ""):
             },
         )
 
-    # ---- At this point we have the type -- check balance ----
+  
     label = LEAVE_TYPE_LABELS.get(leave_type, leave_type.title())
     balance = LeaveBalance.objects.filter(
         employee=employee, leave_type=leave_type
     ).first()
 
     if balance and balance.remaining <= 0:
-        # Exhausted -- suggest alternatives
+       
         other_balances = LeaveBalance.objects.filter(
             employee=employee
         ).exclude(leave_type=leave_type)
@@ -308,7 +303,7 @@ def _handle_apply_leave(employee, query_text: str = ""):
         response_text += "\n\nAll leave categories are exhausted. Please contact HR."
         return _response(response_text)
 
-    # ---- CASE 3: Type provided but no dates ----
+   
     if has_type and not has_dates:
         return _response(
             f"You selected {label}. You have {balance.remaining if balance else 0} "
@@ -318,8 +313,6 @@ def _handle_apply_leave(employee, query_text: str = ""):
             data={"leave_type": leave_type, "label": label},
         )
 
-    # ---- CASE 4: Both type and dates provided -- submit directly ----
-    # Validate dates
     today = date.today()
     if start_date < today:
         return _response(
@@ -331,7 +324,7 @@ def _handle_apply_leave(employee, query_text: str = ""):
 
     days_requested = (end_date - start_date).days + 1
 
-    # Check if enough balance
+
     if balance and days_requested > balance.remaining:
         return _response(
             f"Insufficient {label} balance. You requested {days_requested} day(s) "
@@ -343,7 +336,7 @@ def _handle_apply_leave(employee, query_text: str = ""):
 
     reason_text = "Personal reasons"
 
-    # Create leave request
+   
     leave = LeaveRequest.objects.create(
         employee=employee,
         leave_type=leave_type,
@@ -353,10 +346,10 @@ def _handle_apply_leave(employee, query_text: str = ""):
         status="pending",
     )
 
-    # Balance is deducted only when HR approves the request
+   
     remaining_after = balance.remaining if balance else employee.leave_balance
 
-    # Notify HR users
+   
     from apps.authentication.models import Employee as Emp
     hr_users = Emp.objects.filter(is_hr=True)
     for hr in hr_users:
@@ -412,20 +405,20 @@ def _handle_payroll(employee, query_text: str = ""):
     bonus = payroll.bonus
     today = date.today()
 
-    # Calculate components
+  
     basic = gross * PAYROLL_PERCENTAGES["basic"]
     hra = gross * PAYROLL_PERCENTAGES["hra"]
     da = gross * PAYROLL_PERCENTAGES["da"]
     special_allowance = gross * PAYROLL_PERCENTAGES["special"]
 
-    # Deductions
+   
     pf = basic * PAYROLL_PERCENTAGES["pf_rate"]
     pt = PAYROLL_PERCENTAGES["pt_monthly"]
     income_tax = gross * PAYROLL_PERCENTAGES["income_tax_rate"]
     total_deductions = pf + pt + income_tax
     net_salary = gross - total_deductions
 
-    # Next credit date calculation
+ 
     pay_day = payroll.last_paid_date.day
     if today.day <= pay_day:
         next_pay = today.replace(day=pay_day)
@@ -536,7 +529,7 @@ def _handle_payroll(employee, query_text: str = ""):
             f"- Annual Net Take Home: Rs. {annual_net:,.2f}"
         )
 
-    # Fallback
+   
     return _response(
         f"Hi {employee.name}, your current monthly salary is "
         f"Rs. {gross:,.2f}. For more details, try asking about "
@@ -548,22 +541,38 @@ def _handle_policy(employee):
     return _response(COMPANY_POLICIES["general"])
 
 
-def _handle_unknown(employee):
+def _handle_tax_queries(employee):
     return _response(
-        f"I am sorry {employee.name}, I did not understand your request. "
-        f"You can ask me about:\n"
-        f"- Leave balance (casual, medical, earned)\n"
-        f"- Applying for leave\n"
-        f"- Attendance status\n"
-        f"- Salary, payroll breakdown, deductions, or allowances\n"
-        f"- Company policies\n"
-        f"Please try again."
+        f"Hi {employee.name}. Your Form 16 and detailed tax deduction reports "
+        f"are available in the 'Documents' section of the HR portal. For specific "
+        f"tax advisory or to declare investments, please reach out to the Finance "
+        f"team at finance@company.com. Please let me know if you need any further assistance."
     )
 
 
-# --------------------------------------------------
-# Intent -> Handler dispatch map
-# --------------------------------------------------
+def _handle_company_holidays(employee):
+    return _response(
+        f"Hello {employee.name}. The upcoming company holidays for this year "
+        f"include New Year's Day, Republic Day, Independence Day, Diwali, and Christmas. "
+        f"For the complete holiday calendar, please check the 'Company Policies' "
+        f"section on the HR portal. Please let me know if you need any further assistance."
+    )
+
+
+def _handle_unknown(employee):
+    return _response(
+        f"I apologize, {employee.name}, but I did not understand your request. "
+        f"I can assist you with:\n"
+        f"- Leave balances and applications\n"
+        f"- Attendance records\n"
+        f"- Salary breakdowns and deductions\n"
+        f"- Tax queries and Form 16\n"
+        f"- Company policies and holiday schedules\n"
+        f"Could you please rephrase your question?"
+    )
+
+
+
 INTENT_HANDLERS = {
     "greeting": _handle_greeting,
     "leave_balance": _handle_leave_balance,
@@ -571,5 +580,7 @@ INTENT_HANDLERS = {
     "attendance_status": _handle_attendance,
     "payroll_query": _handle_payroll,
     "policy_question": _handle_policy,
+    "tax_queries": _handle_tax_queries,
+    "company_holidays": _handle_company_holidays,
     "unknown": _handle_unknown,
 }
